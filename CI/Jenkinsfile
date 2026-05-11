@@ -1,0 +1,136 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDS = credentials('DevOps_lw4')
+        LC_ALL = "en_US.UTF-8"
+        LANG = "en_US.UTF-8"
+        LANGUAGE = "en_US.UTF-8"
+    }
+
+    options {
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
+    stages {
+        stage('Clone repository') {
+            steps {
+                cleanWs()
+                bat 'chcp 65001 && git clone -b main https://github.com/DemonStage0/DevOps_lw4.git'
+            }
+        }
+
+        stage('Checkout repo dir') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && dir'
+            }
+        }
+
+        stage('Login to DockerHub') {
+            steps {
+                bat 'chcp 65001 && docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%'
+            }
+        }
+
+        stage('Build images') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose build --no-cache'
+            }
+        }
+
+        stage('Start services') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose up -d'
+            }
+        }
+
+        stage('Check Vault init logs') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose logs vault-init'
+            }
+        }
+
+        stage('Wait for services') {
+            steps {
+                bat 'chcp 65001 && ping -n 31 127.0.0.1 > nul'
+            }
+        }
+
+        stage('Check services status') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose ps'
+            }
+        }
+
+        stage('Run unit tests') {
+            steps {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw4
+                    for /f "tokens=*" %%i in ('docker ps -qf "name=^devops_lw4-web"') do set containerId=%%i
+                    IF "%containerId%" == "" (
+                        echo "No web container running"
+                        exit 1
+                    ) ELSE (
+                        echo Running unit tests...
+                        docker exec %containerId% python -m pytest src/unit_tests/ -v
+                    )
+                '''
+            }
+        }
+
+        stage('Functional test - Health check') {
+            steps {
+                bat 'chcp 65001 && curl -s http://localhost:8000/'
+            }
+        }
+
+        stage('Functional test - Train model') {
+            steps {
+                bat 'chcp 65001 && curl -s http://localhost:8000/train'
+            }
+        }
+
+        stage('Functional test - Predict') {
+            steps {
+                bat 'chcp 65001 && curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"'
+            }
+        }
+
+        stage('Functional test - Predict Kafka') {
+            steps {
+                bat 'chcp 65001 && curl -s "http://localhost:8000/predict_kafka?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"'
+            }
+        }
+
+        stage('Check Kafka & Consumer logs') {
+            steps {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw4
+                    docker-compose logs kafka --tail 20
+                    docker-compose logs consumer --tail 20
+                '''
+            }
+        }
+
+        stage('Tag and push image') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw4 && docker tag devops_lw4-web:latest demonstage/devops_lw4:latest && docker push demonstage/devops_lw4:latest'
+            }
+        }
+    }
+
+    post {
+        always {
+            bat 'chcp 65001 && cd DevOps_lw4 && docker-compose down -v && docker logout'
+        }
+        success {
+            echo 'CI Pipeline completed successfully!'
+        }
+        failure {
+            echo 'CI Pipeline failed! Check logs.'
+        }
+    }
+}

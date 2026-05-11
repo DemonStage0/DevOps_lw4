@@ -1,0 +1,14 @@
+numpy
+pandas
+scikit-learn
+pyyaml
+fastapi
+uvicorn
+pytest
+requests
+sqlalchemy[asyncio]
+pydantic_settings
+asyncpg
+kafka-python
+python-multipart
+pydantic

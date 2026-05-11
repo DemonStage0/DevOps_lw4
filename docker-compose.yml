@@ -1,0 +1,145 @@
+services:
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: devops_lw4-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: devops-lw3-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    command: server -dev
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8200/v1/sys/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  vault-init:
+    image: hashicorp/vault:1.15
+    container_name: devops_lw4-vault-init
+    depends_on:
+      vault:
+        condition: service_healthy
+    volumes:
+      - ./vault/init-vault.sh:/init-vault.sh
+    entrypoint: sh /init-vault.sh
+
+  db:
+    image: postgres:15
+    container_name: glass_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: glass_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  init-db:
+    build: .
+    container_name: glass_init
+    command: python src/csv_to_db.py
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: devops-lw3-root-token
+    depends_on:
+      db:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: devops_lw4-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: [ "CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  producer:
+    build: .
+    container_name: devops_lw4-producer
+    command: python src/producer.py
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: devops-lw3-root-token
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+      init-db:
+        condition: service_completed_successfully
+
+  consumer:
+    build: .
+    container_name: devops_lw4-consumer
+    command: python src/consumer.py
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: devops-lw3-root-token
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: devops_lw4-web
+    ports:
+      - "8000:8000"
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: devops-lw3-root-token
+    depends_on:
+      db:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+      init-db:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./experiments:/app/experiments
+
+volumes:
+  pgdata:
