@@ -1,13 +1,8 @@
-"""
-Kafka Consumer: читает сообщения из Kafka и сохраняет результаты в БД.
-"""
 import json
-import time
 import logging
 import asyncio
 from kafka import KafkaConsumer
 from database import async_session
-from sqlalchemy import insert
 from database import Predict
 
 logging.basicConfig(level=logging.INFO)

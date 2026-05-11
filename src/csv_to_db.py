@@ -2,7 +2,7 @@ import pandas as pd
 import asyncio
 from sqlalchemy import Float, Integer
 from sqlalchemy.ext.asyncio import create_async_engine
-from config import get_db_url  # ← убрал "src."
+from config import get_db_url
 
 async def transfer():
     df = pd.read_csv("data/glass.csv")

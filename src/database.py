@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy import Column, Integer, Float, DateTime, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from src.config import get_db_url  # ← исправлено
+from src.config import get_db_url
 
 def _create_engine():
     return create_async_engine(get_db_url())
