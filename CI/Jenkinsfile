@@ -33,6 +33,14 @@ pipeline {
             }
         }
 
+        stage('Pull base images') {
+            steps {
+                bat 'chcp 65001 && docker pull hashicorp/vault:1.15'
+                bat 'chcp 65001 && docker pull postgres:15'
+                bat 'chcp 65001 && docker pull confluentinc/cp-kafka:7.5.0'
+            }
+        }
+
         stage('Build images') {
             steps {
                 bat 'chcp 65001 && cd DevOps_lw4 && docker-compose build --no-cache'
