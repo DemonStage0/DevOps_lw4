@@ -39,9 +39,32 @@ pipeline {
             }
         }
 
+        stage('Pull base images (if needed)') {
+            steps {
+                script {
+                    def images = [
+                        'hashicorp/vault:1.15',
+                        'postgres:15',
+                        'confluentinc/cp-kafka:7.5.0'
+                    ]
+                    images.each { img ->
+                        def exists = bat(
+                            script: "@docker image inspect ${img} >nul 2>&1 && echo yes || echo no",
+                            returnStdout: true
+                        ).trim()
+                        if (exists != 'yes') {
+                            retry(2) {
+                                bat "docker pull ${img}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Start services') {
             steps {
-                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose up -d'
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose up -d --no-pull'
             }
         }
 
