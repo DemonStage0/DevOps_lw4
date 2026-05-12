@@ -41,7 +41,7 @@ pipeline {
 
         stage('Start services') {
             steps {
-                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose up -d --no-pull'
+                bat 'chcp 65001 && cd DevOps_lw4 && docker-compose up -d'
             }
         }
 
