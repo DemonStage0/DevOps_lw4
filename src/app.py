@@ -10,7 +10,7 @@ from database import get_glass_data, save_prediction
 from preprocess import DataPreprocessor
 from train import ModelTrainer
 from predict import Predictor
-from producer import run_producer  # новый импорт для Kafka
+from producer import create_kafka_producer
 
 app = FastAPI(title="Glass Classification API", version="2.0.0")
 log = Logger(True).get_logger(__name__)
@@ -57,19 +57,14 @@ async def predict(
 
 @app.get("/predict_kafka")
 async def predict_kafka(
-        RI: float = Query(1.52101), Na: float = Query(13.64), Mg: float = Query(4.49),
-        Al: float = Query(1.1), Si: float = Query(71.78), K: float = Query(0.06),
-        Ca: float = Query(8.75), Ba: float = Query(0.0), Fe: float = Query(0.0),
+    RI: float = Query(1.52101), Na: float = Query(13.64), Mg: float = Query(4.49),
+    Al: float = Query(1.1), Si: float = Query(71.78), K: float = Query(0.06),
+    Ca: float = Query(8.75), Ba: float = Query(0.0), Fe: float = Query(0.0),
 ):
     """Предсказывает класс стекла через модель, отправляет результат в Kafka и возвращает ответ."""
     features = [RI, Na, Mg, Al, Si, K, Ca, Ba, Fe]
     try:
-        # Делаем предсказание моделью
         pred = Predictor().predict(features)
-
-        # Отправляем результат в Kafka для Consumer
-        from producer import create_kafka_producer
-        import json
 
         producer = create_kafka_producer()
         message = {
