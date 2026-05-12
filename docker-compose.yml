@@ -1,7 +1,7 @@
 services:
   vault:
     image: hashicorp/vault:1.15
-    pull_policy: never
+    pull_policy: missing
     container_name: devops_lw4-vault
     cap_add:
       - IPC_LOCK
@@ -20,7 +20,7 @@ services:
 
   vault-init:
     image: hashicorp/vault:1.15
-    pull_policy: never
+    pull_policy: missing
     container_name: devops_lw4-vault-init
     depends_on:
       vault:
@@ -31,7 +31,7 @@ services:
 
   db:
     image: postgres:15
-    pull_policy: never
+    pull_policy: missing
     container_name: glass_db
     environment:
       POSTGRES_USER: postgres
@@ -66,7 +66,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    pull_policy: never
+    pull_policy: missing
     container_name: devops_lw4-kafka
     ports:
       - "9092:9092"
